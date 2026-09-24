@@ -16,6 +16,7 @@ const NETWORKS: { value: Network; label: string }[] = [
 export function NetworkSelector() {
   const { network, setNetwork, address, walletNetwork, networkUnknown } = useWallet();
   const locked = Boolean(address);
+  const networkMismatch = locked && walletNetwork !== null && walletNetwork !== network;
 
   if (locked) {
     if (networkUnknown) {
@@ -26,6 +27,17 @@ export function NetworkSelector() {
         >
           <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
           Network unknown
+        </span>
+      );
+    }
+    if (networkMismatch) {
+      return (
+        <span
+          title="Your wallet and app are on different networks. Switch your wallet to match this network to continue."
+          className="chip border border-red-500/25 bg-red-500/10 text-red-300"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+          Network mismatch
         </span>
       );
     }
