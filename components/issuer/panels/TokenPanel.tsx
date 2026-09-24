@@ -5,7 +5,7 @@ import { StrKey } from "@stellar/stellar-sdk";
 import type { AssetDetail } from "@/types";
 import { assetToken } from "@/lib/contracts";
 import { useTx } from "@/hooks/useTx";
-import { parseTokenAmount, formatTokenAmount } from "@/lib/format";
+import { parseTokenAmount, formatTokenAmount, formatRawPlain } from "@/lib/format";
 import { ActionCard } from "@/components/issuer/ActionCard";
 import { TxProgress } from "@/components/ui/TxProgress";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -38,6 +38,13 @@ export function TokenPanel({ asset, onMinted, onPauseToggled }: TokenPanelProps)
 
 // ---- Mint ----
 
+/**
+ * Threshold for requiring confirmation on large mint amounts.
+ * Mints that would increase supply by more than 50% of current supply require
+ * an extra confirmation step to prevent accidental supply inflation.
+ */
+const LARGE_MINT_THRESHOLD_PERCENT = 50;
+
 function MintCard({
   tokenContract,
   metadata,
@@ -51,6 +58,8 @@ function MintCard({
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingMint, setPendingMint] = useState<{ recipient: string; raw: bigint } | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,27 +80,73 @@ function MintCard({
       setFormError("Amount must be greater than zero.");
       return;
     }
+
+    // Check if this is a large mint that requires confirmation
+    const supplyIncrease = (Number(raw) * 100) / Number(metadata.totalSupply);
+    if (supplyIncrease > LARGE_MINT_THRESHOLD_PERCENT) {
+      setPendingMint({ recipient, raw });
+      setConfirmOpen(true);
+      return;
+    }
+
+    // Otherwise, mint directly
+    await executeMint(recipient, raw);
+  }
+
+  async function executeMint(recipient: string, raw: bigint) {
     const res = await tx.run((ctx) =>
       assetToken.mint(ctx, tokenContract, recipient, raw),
     );
     if (res) {
       setTo("");
       setAmount("");
+      setPendingMint(null);
       onMinted?.();
     }
   }
 
+  function handleConfirmLargeMint() {
+    setConfirmOpen(false);
+    if (pendingMint) {
+      void executeMint(pendingMint.recipient, pendingMint.raw);
+    }
+  }
+
+  function handleCancelMint() {
+    setConfirmOpen(false);
+    setPendingMint(null);
+  }
+
   return (
-    <ActionCard
-      title="Mint tokens"
-      description="Issue new tokens to a KYC-approved address, increasing total supply."
-      icon={
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 8v8M8 12h8" strokeLinecap="round" />
-        </svg>
-      }
-    >
+    <>
+      <ConfirmDialog
+        open={confirmOpen && !!pendingMint}
+        title="Confirm large mint?"
+        description={
+          pendingMint
+            ? `You're minting ${formatTokenAmount(pendingMint.raw, metadata.decimals)} ${
+                metadata.symbol
+              } (${formatRawPlain(pendingMint.raw, metadata.decimals)} raw). This will increase total supply from ${formatTokenAmount(
+                metadata.totalSupply,
+                metadata.decimals,
+              )} by more than ${LARGE_MINT_THRESHOLD_PERCENT}%. Are you sure this is correct?`
+            : ""
+        }
+        confirmLabel="Yes, mint these tokens"
+        onConfirm={handleConfirmLargeMint}
+        onCancel={handleCancelMint}
+      />
+
+      <ActionCard
+        title="Mint tokens"
+        description="Issue new tokens to a KYC-approved address, increasing total supply."
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v8M8 12h8" strokeLinecap="round" />
+          </svg>
+        }
+      >
       {/* #294: warn the issuer when the token is paused so mint attempts don't silently fail */}
       {metadata.paused && (
         <p
@@ -152,7 +207,8 @@ function MintCard({
           />
         )}
       </form>
-    </ActionCard>
+      </ActionCard>
+    </>
   );
 }
 
