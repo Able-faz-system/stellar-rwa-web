@@ -158,6 +158,10 @@ function MintCard({
 
 // ---- Pause / Unpause ----
 
+interface AssetMetadata {
+  name?: string;
+}
+
 function PauseCard({
   tokenContract,
   paused,
@@ -171,13 +175,7 @@ function PauseCard({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function requestToggle() {
-    // Unpausing is recoverable; pausing is the irreversible (blocking) action
-    // that warrants an explicit confirmation step.
-    if (!paused) {
-      setConfirmOpen(true);
-    } else {
-      void doToggle();
-    }
+    setConfirmOpen(true);
   }
 
   async function doToggle() {
@@ -194,9 +192,13 @@ function PauseCard({
     <>
       <ConfirmDialog
         open={confirmOpen}
-        title="Pause all transfers?"
-        description="This will immediately stop all token transfers. Existing holders won't be able to send or receive this asset until you unpause it. Are you sure you want to continue?"
-        confirmLabel="Yes, pause transfers"
+        title={paused ? "Unpause transfers?" : "Pause all transfers?"}
+        description={
+          paused
+            ? "This will re-enable all token transfers. Existing holders will be able to send or receive this asset again. Are you sure?"
+            : "This will immediately stop all token transfers. Existing holders won't be able to send or receive this asset until you unpause it. Are you sure you want to continue?"
+        }
+        confirmLabel={paused ? "Yes, unpause transfers" : "Yes, pause transfers"}
         onConfirm={doToggle}
         onCancel={() => setConfirmOpen(false)}
       />
