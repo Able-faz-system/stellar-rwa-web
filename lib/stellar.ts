@@ -236,7 +236,8 @@ export async function readContract<T = unknown>(
     withFailover(network, (server) => server.simulateTransaction(tx)),
   );
   if (rpc.Api.isSimulationError(sim)) {
-    throw new ContractError(parseContractError(sim.error), sim.error);
+    const { message, isAuth } = parseContractError(sim.error);
+    throw new ContractError(message, sim.error, isAuth);
   }
   const retval = sim.result?.retval;
   if (!retval) return undefined as T;
@@ -280,7 +281,8 @@ export async function invokeContract(
   // user to sign, and so the transaction carries the right footprint + fees.
   const sim = await server.simulateTransaction(built);
   if (rpc.Api.isSimulationError(sim)) {
-    throw new ContractError(parseContractError(sim.error), sim.error);
+    const { message, isAuth } = parseContractError(sim.error);
+    throw new ContractError(message, sim.error, isAuth);
   }
   const prepared = rpc.assembleTransaction(built, sim).build();
 
@@ -348,27 +350,33 @@ function sleep(ms: number): Promise<void> {
  */
 export class ContractError extends Error {
   detail?: string;
-  constructor(message: string, detail?: string) {
+  isAuth: boolean;
+
+  constructor(message: string, detail?: string, isAuth: boolean = false) {
     super(message);
     this.name = "ContractError";
     this.detail = detail;
+    this.isAuth = isAuth;
   }
 }
 
 /**
  * Map a raw Soroban error string to a friendlier message. Contract errors
  * surface as `Error(Contract, #N)`; we translate the codes we know about.
+ * Returns an object with the message and a flag indicating if this is an Auth error.
  */
-function parseContractError(raw: string): string {
+function parseContractError(raw: string): { message: string; isAuth: boolean } {
   const codeMatch = raw.match(/Error\(Contract,\s*#(\d+)\)/);
   if (codeMatch) {
     const code = Number(codeMatch[1]);
-    return KNOWN_CONTRACT_ERRORS[code] ?? `Contract rejected the call (code ${code}).`;
+    const isAuth = code === 3; // Error code 3 is Auth
+    const message = KNOWN_CONTRACT_ERRORS[code] ?? `Contract rejected the call (code ${code}).`;
+    return { message, isAuth };
   }
   if (/trustline|insufficient/i.test(raw)) {
-    return "Insufficient balance or a missing trustline for the payment token.";
+    return { message: "Insufficient balance or a missing trustline for the payment token.", isAuth: false };
   }
-  return "The contract call could not be completed.";
+  return { message: "The contract call could not be completed.", isAuth: false };
 }
 
 /**
