@@ -14,10 +14,11 @@ interface TokenPanelProps {
   asset: AssetDetail;
   onMinted?: () => void;
   onPauseToggled?: () => void;
+  isAdmin?: boolean;
 }
 
 /** Mint tokens to an address, and pause / unpause the token contract. */
-export function TokenPanel({ asset, onMinted, onPauseToggled }: TokenPanelProps) {
+export function TokenPanel({ asset, onMinted, onPauseToggled, isAdmin = true }: TokenPanelProps) {
   const { metadata, tokenContract } = asset;
 
   return (
@@ -26,11 +27,13 @@ export function TokenPanel({ asset, onMinted, onPauseToggled }: TokenPanelProps)
         tokenContract={tokenContract}
         metadata={metadata}
         onMinted={onMinted}
+        isAdmin={isAdmin}
       />
       <PauseCard
         tokenContract={tokenContract}
         paused={metadata.paused}
         onToggled={onPauseToggled}
+        isAdmin={isAdmin}
       />
     </div>
   );
@@ -42,10 +45,12 @@ function MintCard({
   tokenContract,
   metadata,
   onMinted,
+  isAdmin = true,
 }: {
   tokenContract: string;
   metadata: AssetDetail["metadata"];
   onMinted?: () => void;
+  isAdmin?: boolean;
 }) {
   const tx = useTx();
   const [to, setTo] = useState("");
@@ -110,7 +115,7 @@ function MintCard({
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder="G… or C…"
-            disabled={tx.pending}
+            disabled={tx.pending || !isAdmin}
             className="input font-mono text-xs"
             spellCheck={false}
           />
@@ -124,7 +129,7 @@ function MintCard({
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
               inputMode="decimal"
-              disabled={tx.pending}
+              disabled={tx.pending || !isAdmin}
               className="input pr-20"
             />
             <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-base-100/40">
@@ -139,7 +144,12 @@ function MintCard({
         {formError && <p className="text-xs text-red-400">{formError}</p>}
 
         {tx.phase === "idle" ? (
-          <button type="submit" disabled={tx.pending} className="btn-primary">
+          <button
+            type="submit"
+            disabled={tx.pending || !isAdmin}
+            className="btn-primary"
+            title={!isAdmin ? "Only the asset admin can mint tokens" : ""}
+          >
             Mint
           </button>
         ) : (
@@ -147,6 +157,7 @@ function MintCard({
             phase={tx.phase}
             hash={tx.hash}
             error={tx.error}
+            errorType={tx.errorType}
             onDismiss={tx.reset}
             successMessage="Tokens minted successfully."
           />
@@ -162,10 +173,12 @@ function PauseCard({
   tokenContract,
   paused,
   onToggled,
+  isAdmin = true,
 }: {
   tokenContract: string;
   paused: boolean;
   onToggled?: () => void;
+  isAdmin?: boolean;
 }) {
   const tx = useTx();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -230,8 +243,9 @@ function PauseCard({
         {tx.phase === "idle" ? (
           <button
             onClick={requestToggle}
-            disabled={tx.pending}
+            disabled={tx.pending || !isAdmin}
             className={paused ? "btn-primary" : "btn-secondary"}
+            title={!isAdmin ? "Only the asset admin can control pausing" : ""}
           >
             {paused ? "Unpause transfers" : "Pause transfers"}
           </button>
@@ -240,6 +254,7 @@ function PauseCard({
             phase={tx.phase}
             hash={tx.hash}
             error={tx.error}
+            errorType={tx.errorType}
             onDismiss={tx.reset}
             successMessage={paused ? "Token unpaused." : "Token paused."}
           />
