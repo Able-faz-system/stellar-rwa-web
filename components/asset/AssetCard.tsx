@@ -46,6 +46,13 @@ export function AssetCard({ asset, holders, supply }: AssetCardProps) {
             <dd className="mt-0.5 text-base font-semibold text-base-100">{supply}</dd>
           </div>
         )}
+        <div>
+          <dt className="text-[11px] uppercase tracking-wide text-base-100/40">Holders</dt>
+          {/* The count needs a per-asset read, so list views may not have it. */}
+          <dd className="mt-0.5 text-base font-semibold text-base-100">
+            {holders === undefined ? "—" : holders.toLocaleString()}
+          </dd>
+        </div>
       </dl>
 
       <div className="mt-auto flex items-center justify-between border-t border-white/5 pt-3 text-xs text-base-100/40">
