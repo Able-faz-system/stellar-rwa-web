@@ -64,6 +64,12 @@ describe("NetworkSelector", () => {
       expect(screen.getByRole("button", { name: /mainnet/i })).toBeInTheDocument();
     });
 
+    it("exposes a named group and announces the current network", () => {
+      setup({ address: null, network: "mainnet" });
+      expect(screen.getByRole("group", { name: "Network" })).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("Current network: Mainnet");
+    });
+
     it("does not render a locked chip", () => {
       setup({ address: null });
       // A locked chip renders as a <span> with no role button
