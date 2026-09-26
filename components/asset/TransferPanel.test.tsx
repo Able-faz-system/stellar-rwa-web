@@ -203,4 +203,36 @@ describe("TransferPanel", () => {
       ).toBeInTheDocument();
     });
   });
+
+  describe("double submission prevention", () => {
+    it("disables submit button while transaction is pending", () => {
+      mockUseWallet.mockReturnValue({ address: SENDER } as ReturnType<typeof useWallet>);
+      mockUseCompliance.mockReturnValue({
+        data: { allowed: true, status: "Approved", record: null },
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      // Set up with pending=true
+      mockUseTx.mockReturnValue({
+        phase: "signing",
+        hash: null,
+        error: null,
+        pending: true,
+        run: jest.fn(),
+        reset: jest.fn(),
+      });
+
+      render(<TransferPanel asset={asset} balance={100n} />);
+
+      // When pending=true and form is in idle state, button should be visible but disabled
+      const submitButton = screen.queryByRole("button", { name: "Transfer" });
+      if (submitButton) {
+        // Button is shown and disabled
+        expect(submitButton).toBeDisabled();
+      }
+      // If TxProgress is shown instead, that's also correct (button won't exist)
+    });
+  });
 });

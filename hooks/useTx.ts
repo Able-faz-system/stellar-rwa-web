@@ -6,6 +6,7 @@ import type { WriteCtx } from "@/lib/contracts";
 import { useWallet } from "@/hooks/useWallet";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ContractError } from "@/lib/stellar";
+import { UserRejectedError } from "@/lib/freighter";
 
 interface RunResult {
   phase: TxPhase;
@@ -72,6 +73,13 @@ export function useTx(telemetry?: TxTelemetry): RunResult {
         t.onSuccess?.(result.hash, result);
         return result;
       } catch (e) {
+        // Handle user rejection specially: reset to idle without error message
+        if (e instanceof UserRejectedError) {
+          setPhase("idle");
+          t.onPhase?.("idle");
+          return null;
+        }
+
         const msg = e instanceof Error ? e.message : "Transaction failed.";
         let errType: TxErrorType = "generic";
         if (e instanceof ContractError) {
