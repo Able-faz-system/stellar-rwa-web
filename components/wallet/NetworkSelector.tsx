@@ -44,6 +44,8 @@ export function NetworkSelector() {
     return (
       <span
         title="Network follows your connected wallet"
+        role="status"
+        aria-label={`Current network: ${label(walletNetwork ?? network)}. Follows your connected wallet.`}
         className="chip border border-white/10 bg-white/5 text-base-100/60"
       >
         <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
@@ -62,12 +64,16 @@ export function NetworkSelector() {
   return (
     <div
       role="group"
-      aria-label="Select network"
+      aria-label="Network"
       className="inline-flex rounded-xl border border-white/10 bg-base-900/60 p-0.5"
     >
+      <span role="status" className="sr-only">
+        Current network: {label(network)}
+      </span>
       {NETWORKS.map((n) => (
         <button
           key={n.value}
+          type="button"
           onClick={() => setNetwork(n.value)}
           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-1 focus-visible:ring-offset-base-900 ${
             network === n.value
