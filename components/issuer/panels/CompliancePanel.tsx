@@ -17,10 +17,11 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 interface CompliancePanelProps {
   asset: AssetDetail;
   onChanged?: () => void;
+  isAdmin?: boolean;
 }
 
 /** KYC allowlist management: add/suspend/remove addresses, block/unblock jurisdictions. */
-export function CompliancePanel({ asset, onChanged }: CompliancePanelProps) {
+export function CompliancePanel({ asset, onChanged, isAdmin = true }: CompliancePanelProps) {
   const complianceId = asset.metadata.complianceContract;
 
   return (
@@ -28,9 +29,9 @@ export function CompliancePanel({ asset, onChanged }: CompliancePanelProps) {
       <div className="rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-xs text-base-100/50">
         <strong>Required role:</strong> compliance contract <code className="font-mono text-base-100/60">admin</code>
       </div>
-      <AddToAllowlistCard complianceId={complianceId} onChanged={onChanged} />
-      <AllowlistManageCard complianceId={complianceId} onChanged={onChanged} />
-      <JurisdictionCard complianceId={complianceId} onChanged={onChanged} />
+      <AddToAllowlistCard complianceId={complianceId} onChanged={onChanged} isAdmin={isAdmin} />
+      <AllowlistManageCard complianceId={complianceId} onChanged={onChanged} isAdmin={isAdmin} />
+      <JurisdictionCard complianceId={complianceId} onChanged={onChanged} isAdmin={isAdmin} />
     </div>
   );
 }
@@ -40,9 +41,11 @@ export function CompliancePanel({ asset, onChanged }: CompliancePanelProps) {
 function AddToAllowlistCard({
   complianceId,
   onChanged,
+  isAdmin = true,
 }: {
   complianceId: string;
   onChanged?: () => void;
+  isAdmin?: boolean;
 }) {
   const tx = useTx();
   const [address, setAddress] = useState("");
@@ -103,7 +106,7 @@ function AddToAllowlistCard({
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="G… or C…"
-            disabled={tx.pending}
+            disabled={tx.pending || !isAdmin}
             className="input font-mono text-xs"
             spellCheck={false}
           />
@@ -117,7 +120,7 @@ function AddToAllowlistCard({
               onChange={(e) => setJurisdiction(e.target.value.toUpperCase())}
               placeholder="US"
               maxLength={3}
-              disabled={tx.pending}
+              disabled={tx.pending || !isAdmin}
               className="input uppercase"
             />
           </div>
@@ -129,7 +132,7 @@ function AddToAllowlistCard({
               onChange={(e) => setExpiresAt(e.target.value)}
               placeholder="0 = never"
               inputMode="numeric"
-              disabled={tx.pending}
+              disabled={tx.pending || !isAdmin}
               className="input"
             />
           </div>
@@ -138,7 +141,12 @@ function AddToAllowlistCard({
         {formError && <p className="text-xs text-red-400">{formError}</p>}
 
         {tx.phase === "idle" ? (
-          <button type="submit" disabled={tx.pending} className="btn-primary">
+          <button
+            type="submit"
+            disabled={tx.pending || !isAdmin}
+            className="btn-primary"
+            title={!isAdmin ? "Only the asset admin can manage the allowlist" : ""}
+          >
             Approve address
           </button>
         ) : (
@@ -146,6 +154,7 @@ function AddToAllowlistCard({
             phase={tx.phase}
             hash={tx.hash}
             error={tx.error}
+            errorType={tx.errorType}
             onDismiss={tx.reset}
             successMessage="Address approved on the KYC allowlist."
           />
@@ -160,9 +169,11 @@ function AddToAllowlistCard({
 function AllowlistManageCard({
   complianceId,
   onChanged,
+  isAdmin = true,
 }: {
   complianceId: string;
   onChanged?: () => void;
+  isAdmin?: boolean;
 }) {
   const { data, loading, refetch } = useAllowlist(complianceId);
   const records = data ?? [];
@@ -199,6 +210,7 @@ function AllowlistManageCard({
               record={r}
               complianceId={complianceId}
               onChanged={handleChanged}
+              isAdmin={isAdmin}
             />
           ))}
         </ul>
@@ -211,10 +223,12 @@ function AllowlistRow({
   record,
   complianceId,
   onChanged,
+  isAdmin = true,
 }: {
   record: { address: string; status: string; jurisdiction: string };
   complianceId: string;
   onChanged?: () => void;
+  isAdmin?: boolean;
 }) {
   const suspendTx = useTx();
   const removeTx = useTx();
@@ -259,8 +273,9 @@ function AllowlistRow({
                     .run((ctx) => compliance.suspend(ctx, complianceId, record.address))
                     .then((r) => r && onChanged?.())
                 }
-                disabled={isPending}
-                className="btn-ghost py-1 text-xs text-amber-300 hover:bg-amber-500/10"
+                disabled={isPending || !isAdmin}
+                className="btn-ghost py-1 text-xs text-amber-300 hover:bg-amber-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!isAdmin ? "Only the asset admin can modify allowlist" : ""}
               >
                 Suspend
               </button>
@@ -274,16 +289,18 @@ function AllowlistRow({
                     )
                     .then((r) => r && onChanged?.())
                 }
-                disabled={isPending}
-                className="btn-ghost py-1 text-xs text-brand-300 hover:bg-brand-500/10"
+                disabled={isPending || !isAdmin}
+                className="btn-ghost py-1 text-xs text-brand-300 hover:bg-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!isAdmin ? "Only the asset admin can modify allowlist" : ""}
               >
                 Re-approve
               </button>
             )}
             <button
               onClick={() => setRemoveConfirmOpen(true)}
-              disabled={isPending}
-              className="btn-ghost py-1 text-xs text-red-400 hover:bg-red-500/10"
+              disabled={isPending || !isAdmin}
+              className="btn-ghost py-1 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={!isAdmin ? "Only the asset admin can modify allowlist" : ""}
             >
               Remove
             </button>
@@ -296,6 +313,7 @@ function AllowlistRow({
               phase={suspendTx.phase}
               hash={suspendTx.hash}
               error={suspendTx.error}
+              errorType={suspendTx.errorType}
               onDismiss={suspendTx.reset}
               successMessage="Status updated."
             />
@@ -307,6 +325,7 @@ function AllowlistRow({
               phase={removeTx.phase}
               hash={removeTx.hash}
               error={removeTx.error}
+              errorType={removeTx.errorType}
               onDismiss={removeTx.reset}
               successMessage="Address removed from allowlist."
             />
@@ -322,9 +341,11 @@ function AllowlistRow({
 function JurisdictionCard({
   complianceId,
   onChanged,
+  isAdmin = true,
 }: {
   complianceId: string;
   onChanged?: () => void;
+  isAdmin?: boolean;
 }) {
   const blockTx = useTx();
   const unblockTx = useTx();
@@ -390,10 +411,15 @@ function JurisdictionCard({
               onChange={(e) => setBlockJur(e.target.value.toUpperCase())}
               placeholder="e.g. KP"
               maxLength={3}
-              disabled={eitherPending}
+              disabled={eitherPending || !isAdmin}
               className="input flex-1 uppercase"
             />
-            <button type="submit" disabled={eitherPending} className="btn-secondary shrink-0">
+            <button
+              type="submit"
+              disabled={eitherPending || !isAdmin}
+              className="btn-secondary shrink-0"
+              title={!isAdmin ? "Only the asset admin can block jurisdictions" : ""}
+            >
               Block
             </button>
           </div>
@@ -403,6 +429,7 @@ function JurisdictionCard({
               phase={blockTx.phase}
               hash={blockTx.hash}
               error={blockTx.error}
+              errorType={blockTx.errorType}
               onDismiss={blockTx.reset}
               successMessage="Jurisdiction blocked."
             />
@@ -419,10 +446,15 @@ function JurisdictionCard({
               onChange={(e) => setUnblockJur(e.target.value.toUpperCase())}
               placeholder="e.g. US"
               maxLength={3}
-              disabled={eitherPending}
+              disabled={eitherPending || !isAdmin}
               className="input flex-1 uppercase"
             />
-            <button type="submit" disabled={eitherPending} className="btn-secondary shrink-0">
+            <button
+              type="submit"
+              disabled={eitherPending || !isAdmin}
+              className="btn-secondary shrink-0"
+              title={!isAdmin ? "Only the asset admin can unblock jurisdictions" : ""}
+            >
               Unblock
             </button>
           </div>
@@ -432,6 +464,7 @@ function JurisdictionCard({
               phase={unblockTx.phase}
               hash={unblockTx.hash}
               error={unblockTx.error}
+              errorType={unblockTx.errorType}
               onDismiss={unblockTx.reset}
               successMessage="Jurisdiction unblocked."
             />

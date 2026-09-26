@@ -53,6 +53,7 @@ function setupTx() {
     phase: "idle",
     hash: null,
     error: null,
+    errorType: "generic",
     pending: false,
     run: mockRun,
     reset: mockReset,
